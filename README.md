@@ -1,6 +1,6 @@
 ## Dependency Setup
 
-https://pysimplegui.readthedocs.io/en/latest/
+The tool uses FFmpeg which can be downloaded here https://ffmpeg.org/download.html
 
 ## Create Python 3 virtual environment
 ````
@@ -9,12 +9,13 @@ python -m venv venv
 
 # on Windows
 venv\Scripts\activate.bat
-
-# upgrade pip
-python -m pip install --upgrade pip
+````
 
 ## Install required libraries
 ````
+# upgrade pip
+python -m pip install --upgrade pip
+
 # PySimpleGUI framework
 python -m pip install pysimplegui
 ````
