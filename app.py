@@ -3,16 +3,7 @@ import os
 import subprocess
 
 from utils.fileUtils import get_files_in_folder
-
-def execute(cmd):
-    popen = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
-    for stdout_line in iter(popen.stdout.readline, ""):
-        print(stdout_line)
-        yield stdout_line 
-    popen.stdout.close()
-    return_code = popen.wait()
-    if return_code:
-        raise subprocess.CalledProcessError(return_code, cmd)
+from utils.ffmpegFilters import get_setpts, get_fade_in, get_fade_out, get_filters
 
 sg.theme('DarkAmber')   # Add a touch of color
 
@@ -23,7 +14,7 @@ FFMPEG_EXE_PATH = "C:/Users/Chuan/Videos/MrSnorlax808/ffmpeg-4.3.2-2021-02-27-es
 DEFAULT_INPUT_FOLDER = "C:/Users/Chuan/Videos/MrSnorlax808/TestInput"
 DEFAULT_OUTPUT_FOLDER = "C:/Users/Chuan/Videos/MrSnorlax808/TestOutput"
 
-timelapse_options = ['x30', 'x60', 'x90']
+timelapse_options = ['None', 'x30', 'x60', 'x90']
 # All the stuff inside your window.
 layout = [  [sg.Text("FFmpeg executable: ")], 
             [sg.Input(key="ffmpeg", default_text=FFMPEG_EXE_PATH, change_submits=True), sg.FileBrowse()],
@@ -31,7 +22,17 @@ layout = [  [sg.Text("FFmpeg executable: ")],
             [sg.Input(key="inputFolder" ,default_text=DEFAULT_INPUT_FOLDER, change_submits=True), sg.FolderBrowse()],
             [sg.Text("Output Folder: (location of the converted videos)")],
             [sg.Input(key="outputFolder", default_text=DEFAULT_OUTPUT_FOLDER, change_submits=True), sg.FolderBrowse()],
+            [sg.HorizontalSeparator()],
             [sg.Text('Timelapse Speedup'), sg.DropDown(key='speedup', values=timelapse_options, default_value='x30')],
+            [sg.Checkbox('Audio', default=False, key='audio')],
+            [sg.Checkbox('Fade In:', default=True, key='fadeIn')],
+            [sg.Text("Start    "), sg.Input(key="fadeInStart", default_text=0)],
+            [sg.Text("Duration"), sg.Input(key="fadeInDuration", default_text=0.5)],
+            #[sg.HorizontalSeparator()],
+            [sg.Checkbox('Fade Out:', default=True, key='fadeOut')],
+            [sg.Text("Start    "), sg.Input(key="fadeOutStart", default_text=0)],
+            [sg.Text("Duration"), sg.Input(key="fadeOutDuration", default_text=0.5)],
+            #[sg.HorizontalSeparator()],
             [sg.Multiline(key='status', default_text='', size=(60, 5))],
             [sg.Button('Process'), sg.Button('Quit')] ]
 
@@ -42,25 +43,29 @@ while True:
     event, values = window.read()
     if event == sg.WIN_CLOSED or event == 'Quit': # if user closes window or clicks cancel
         break
-    #print('You entered ', values[0])
-    print(values['speedup'])
-    print(values['inputFolder'])
-    print(get_files_in_folder(values['inputFolder']))
-    #print("IN2" + values['-IN2-'])
-    #subprocess.Popen(FFMPEG_EXE_PATH, cwd=r'd:\test\local')
-    #-i Full-4K/kuhio.webm -filter:v "setpts=0.0333*PTS" -an Timelapsed-4K/kuhio4.webm
+    #print(values['speedup'])
+    #print(values['inputFolder'])
+    #print(get_files_in_folder(values['inputFolder']))
+
     inputFile = DEFAULT_INPUT_FOLDER + '/' + get_files_in_folder(values['inputFolder'])[0]
     outputFile = DEFAULT_OUTPUT_FOLDER + '/' + values['speedup'] + get_files_in_folder(values['inputFolder'])[0]
-    cmd = [FFMPEG_EXE_PATH, '-i', inputFile, '-filter:v', 'setpts=0.0333*PTS', '-an', outputFile]
+    setptsFiler = get_setpts(values['speedup'])
+    fadeInFilter = get_fade_in(values['fadeIn'], values['fadeInStart'], values['fadeInDuration'])
+    fadeOutFilter = get_fade_out(values['fadeOut'], values['fadeOutStart'], values['fadeOutDuration'])
+    filters = get_filters([setptsFiler, fadeInFilter, fadeOutFilter])
+    print(filters)
+    cmd = None
+    if values['audio']:
+        cmd = [FFMPEG_EXE_PATH, '-i', inputFile, '-filter:v', filters, '-an', outputFile]
+    else:
+        cmd = [FFMPEG_EXE_PATH, '-i', inputFile, '-filter:v', filters, outputFile]
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) 
     for stdout_line in iter(process.stdout.readline, ""):
         if len(stdout_line) == 0:
             break
-        print(stdout_line.decode("utf-8"))
-        window.Element('status').Update(stdout_line.decode("utf-8"))
+        line = stdout_line.decode("utf-8")
+        print(line)
+        window.Element('status').Update(line)
         window.read(timeout=400)
-        
-    #subprocess.call(FFMPEG_EXE_PATH)
-    #execute(cmd)
 
 window.close()
